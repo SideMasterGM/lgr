@@ -1,0 +1,3 @@
+[submodule "lib/psy"]
+	path = lib/psy
+	url = git@github.com:ngorchilov/psy.git
