@@ -20,14 +20,14 @@ namespace rrd\extractors {
 			}
 		}
 		
-		function get($interfaces = NULL) {
+		function get($sensor = NULL) {
 			if (empty($this->interfaces)) {
 				return FALSE;
 			}
 			$result = array();
-			foreach (preg_split('/\s+/', $interfaces) as $i => $reading) {
+			foreach (preg_split('/\s+/', $sensor) as $i => $reading) {
 				$reading = preg_split('/[\/:]/', $reading);
-				$iface = (string) (!empty($interfaces->attributes()->interface) ? $interfaces->attributes()->interface : $interfaces->attributes()->id);
+				$iface = (string) (!empty($sensor->attributes()->interface) ? $sensor->attributes()->interface : $sensor->attributes()->id);
 				$result[$i] = bcadd((isset($result[$i]) ? $result[$i] : 0), $this->interfaces[$iface][$reading[0]][$reading[1]]);
 			}
 			return $result;

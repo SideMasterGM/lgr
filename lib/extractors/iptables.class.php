@@ -18,15 +18,15 @@ namespace rrd\extractors {
 			}
 		}
 		
-		function get($counters) {
+		function get($sensor) {
 			if (empty($this->iptables)) {
 				return FALSE;
 			}
 			$result = array();
-			foreach(preg_split('/\s+/', $counters) as $reading) {
+			foreach(preg_split('/\s+/', $sensor) as $reading) {
 				$r = 0;
 				foreach($this->iptables as $k => $v) {
-					if ((stripos($k, (string) $counters->attributes()->id) !== FALSE) and (stripos($k, $reading) !== FALSE)) {
+					if ((stripos($k, (string) $sensor->attributes()->id) !== FALSE) and (stripos($k, $reading) !== FALSE)) {
 						$r = $v;
 						break;
 					}
