@@ -273,7 +273,7 @@ namespace rrd {
 					}
 	
 					if (isset($sep)) {
-						$this->cmd[] = 'COMMENT:"' . str_repeat($sep, $title_width) . str_repeat($spacer . str_repeat($sep, $col_title_len), count($totals->xpath('//cf'))) . '\l"';
+						$this->cmd[] = 'COMMENT:"' . str_repeat($sep, $title_width) . str_repeat($spacer . str_repeat($sep, $col_title_len), count($legend->totals->cf)) . '\l"';
 					}
 	
 					if (!isset($this->vars[$var])) {
