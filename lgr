@@ -1,0 +1,19 @@
+#!/usr/bin/php
+<?php
+namespace {
+
+	require_once __DIR__ . DIRECTORY_SEPARATOR . 'lib' . DIRECTORY_SEPARATOR . 'rrd.lib.php';
+
+	// pop our own name from argument list
+	$self = array_shift($argv);
+	foreach($argv as $cfg) {
+		echo "{$cfg}\n";
+		$rrd = new rrd\main($cfg);
+		echo "\tfetching statistics\n";
+		$rrd->fetch_all();
+		echo "\tdrawing graphs\n";
+		$rrd->draw_all();
+	}
+}
+
+?>

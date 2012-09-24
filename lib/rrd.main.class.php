@@ -1,0 +1,341 @@
+<?php
+namespace rrd {
+
+	require_once __DIR__ . DIRECTORY_SEPARATOR . 'psy' . DIRECTORY_SEPARATOR . 'psy.php';
+	use Exception, SimpleXMLElement, ShuntingYard;
+
+	class main {
+		protected $cfg; // a SimpleXMLElement configuration object
+		protected $rrdtool; // a rrd\rrdtool object
+		protected $connectors = array();
+		protected $extractors = array();
+		protected $vars;
+		protected $cmd;
+		
+		function __construct($cfg) {
+			$this->build_config($cfg);
+			$this->rrdtool = new rrdtool($this->cfg->rrd);
+		}
+
+		function build_config($cfg) {
+			if (is_string($cfg)) {
+				// string parameter. ehther file or xml
+				if (file_exists($cfg)) {
+					// file
+					$this->cfg = simplexml_load_file($cfg);
+				} else {
+					// xml
+					$this->cfg = simplexml_load_string($cfg);
+				}
+			} elseif (is_object($cfg) and (get_class($cfg) === 'SimpleXMLElement')) {
+				// ready object
+				$this->cfg = $cfg;
+			} else {
+				throw new Exception('Invalid configuration suplied!');
+			}
+		}
+
+		function fetch_all() {
+			foreach($this->cfg->xpath('devices/device') as $device) {
+				$this->fetch_device($device);
+			}
+		}
+		
+		function fetch_device($device) {
+			foreach($device->xpath('sensors/sensor') as $sensor) {
+				$this->fetch_sensor($device, $sensor);
+			}
+		}
+
+		function fetch_sensor($device, $sensor) {
+			$db_filename = (string) $device->attributes()->id . '.' . preg_replace('/:/', '.', $sensor->attributes()->id) . '.rrd';
+			echo  "\t\t{$db_filename}\n";
+			$extractor = $this->extractor(
+				$this->connector(
+					$id = (string) $sensor->attributes()->connector,
+					$device->xpath("connectors/connector[@id='{$id}']")
+				),
+				$id = (string) $sensor->attributes()->extractor,
+				$device->xpath("extractors/extractor[@id='{$id}']"),
+				new SimpleXMLElement("<extractor device='{$device->attributes()->id}' />") // add unique device id attribute in order to make the extractor persistent for this device only
+			);
+			$data = $extractor->get($sensor);
+			$this->rrdtool->update($db_filename, $data, (string) $sensor->attributes()->schema);
+		}
+		
+		function connector() {
+			if (!func_num_args()) {
+				throw new Exception(__METHOD__ . ' called without paramters');
+			}
+			$id = func_get_arg(0);
+			$cfg = $this->xml_merge(array_merge($this->cfg->xpath("connectors/connector[@id='{$id}']"), array_slice(func_get_args(), 1)));
+			if (is_null($cfg) or ((string) $cfg->attributes()->class === '')) {
+				throw new Exception("connector id `{$id}` not found!");
+			}
+			$hash = md5($cfg->asXML(), TRUE);
+			if (!array_key_exists($hash, $this->connectors)) {
+				$class = __NAMESPACE__ . '\\connectors\\' . (string) $cfg->attributes()->class;
+//				echo "new {$class}\n";
+				$this->connectors[$hash] = new $class($cfg);
+			}
+			return $this->connectors[$hash];
+		}
+
+		function extractor() {
+			if (func_num_args() < 2) {
+				throw new Exception(__METHOD__ . ' called without enough paramters');
+			}
+
+			$connector = func_get_arg(0);
+			$id = func_get_arg(1);
+			$cfg = $this->xml_merge(array_merge($this->cfg->xpath("extractors/extractor[@id='{$id}']"), array_slice(func_get_args(), 2)));
+			if (is_null($cfg)) {
+				throw new Exception("extractor id `{$id}` not found!");
+			} elseif ($cfg->attributes()->persistent == 1) {
+				// TODO: add unique connector id
+				$hash = md5($cfg->asXML(), TRUE);
+				if (!array_key_exists($hash, $this->extractors)) {
+					$class = __NAMESPACE__ . '\\extractors\\' . (string) $cfg->attributes()->class;
+//					echo "new {$class}\n";
+					$this->extractors[$hash] = new $class($connector, $cfg);
+				}
+				$extractor = $this->extractors[$hash];
+			} else {
+				$class = __NAMESPACE__ . '\\extractors\\' . (string) $cfg->attributes()->class;
+//				echo "new {$class}\n";
+				$extractor = new $class($connector, $cfg);
+			}
+			return $extractor;
+		}
+
+		function draw_all() {
+			foreach($this->cfg->xpath('graphs/graph') as $graph) {
+				$this->draw_graph($graph);
+			}
+		}
+
+		function draw_graph($graph) {
+			$this->cmd = array();
+			$this->vars = array();
+			$this->build_defs($graph->data);
+			$this->build_graph($graph->series, $graph->legend);
+			
+			// customizations
+			if (!empty($graph->settings)) {
+				static $options = array('legend-direction', 'width', 'height', 'vertical-label', 'only-graph', 'full-size-mode', 'font');
+				foreach($graph->settings->children() as $opt) {
+					$opt_name = $opt->getName();
+					if (in_array($opt_name, $options)) {
+						$value = (string) $opt;
+						if ($value === '') {
+							$this->cmd[] = "--{$opt_name}";
+						} elseif (preg_match('/^\d+$/', $value)) {
+							$this->cmd[] = "--{$opt_name}={$value}";
+						} elseif (preg_match('/:/', $value)) {
+							$this->cmd[] = "--{$opt_name} {$value}";
+						} else {
+							$this->cmd[] = "--{$opt_name}=\"{$value}\"";
+						}
+					}
+				}
+			}
+
+			// put all the rest
+			$this->cmd = array_merge(array(NULL), $this->cmd, array(
+				'COMMENT:\s',
+//				'--alt-y-grid',
+//				'--watermark "LiquidGrapher v0.1 beta @ ' . date('D, d M Y H:i:s T') . '"',
+				'--imgformat PNG',
+				'--no-gridfit',
+				'--legend-position=south',
+				'--slope-mode',
+				'--alt-autoscale-max',
+				'--font DEFAULT:0:Courier',
+//				'--font DEFAULT:7:',
+//				'--font TITLE:12:',
+				'--disable-rrdtool-tag',
+				NULL,
+				NULL,
+			));
+			static $periods = array('d' => 'last 24 hours', 'w' => 'last week', 'm' => 'last month', 'y' => 'last year');
+//			foreach(array_keys($periods) as $period) {
+			foreach(array('d') as $period) {
+				$file = $this->cfg->rrd->paths->img . DIRECTORY_SEPARATOR . $graph->attributes()->id . '.' . $period . '.png';
+				echo "\t\t{$graph->attributes()->id}.{$period}.png\n";
+				$this->cmd[0] = "graph {$file}";
+				$this->cmd[count($this->cmd) - 2] = "-t \"{$graph->settings->title} ({$periods[$period]})\"";
+				$this->cmd[count($this->cmd) - 1] = "-s -1{$period}";
+//				print_r($this->cmd);
+				$this->rrdtool->exec(join(' ', $this->cmd));
+			}
+//			print_r($this->cmd);
+		}
+		
+		function build_defs($xml) {
+			static $var_prefix = 'var';
+			$var_index = 0;
+		
+			foreach($xml->var as $rec) {
+				$row = array();
+				$var = (string) $rec->attributes()->id;
+				$sy = new ShuntingYard((string) $rec);
+	
+				$token = $sy->first();
+				$cnt = 0;
+				while ($token !== FALSE) {
+					if ($token->type === T_DEF) {
+						$var_key = $token->value;
+						if (isset($this->vars[$var_key])) {
+							$row[] = $this->vars[$var_key];
+						} elseif (($tmp = preg_split('/:/', $var_key)) and (array_shift($tmp) === 'rrd')) {
+							if (!in_array(strtoupper(end($tmp)), array('AVERAGE', 'MIN', 'MAX', 'LAST'))) {
+								$cf = 'AVERAGE';
+							} else {
+								$cf = strtoupper(array_pop($tmp));
+							}
+							$ds = array_pop($tmp);
+							$var_value = $this->cfg->rrd->paths->db . DIRECTORY_SEPARATOR . join('.', $tmp) . ".rrd:{$ds}:{$cf}";
+							$var_name = $var_prefix . $var_index;
+							$var_index++;
+							$this->vars[$var_key] = $var_name;
+							$this->cmd[] = "DEF:{$var_name}={$var_value}";
+							$row[] = $var_name;
+						} else {
+							die("Undefined variable `{$var_key}`\n");
+						}
+					} elseif ($token->type === T_UNARY_MINUS) {
+						// multiply by minus one in order to reverse the sign
+						$row[] = -1;
+						$row[] = '*';
+					} elseif ($token->type === T_UNARY_PLUS) {
+						// simple skip it
+					} else {
+						$row[] = $token->value;
+					}
+					$token = $sy->next();
+					$cnt++;
+				}
+
+				$var_key = $var;
+				if (isset($this->vars[$var_key])) {
+					die("Duplicate variable definition for`{$var}`");
+				} elseif ($cnt === 1) {
+					// simple variable, duplicate key
+					$this->vars[$var_key] = $var_prefix . ($var_index - 1);
+				} else {
+					$var_name = $var_prefix . $var_index;
+					$var_index++;
+					$this->vars[$var_key] = $var_name;
+					$cdef = 'CDEF:' . $var_name . '=' . join(',', $row);
+					$this->cmd[] = $cdef;
+				}
+			}
+		}
+
+		function build_graph($xml, &$legend) {
+			$title_width = $legend->widths->title ? (string) $legend->widths->title : 20;
+			$col_title_len = $legend->widths->rows ? (string) $legend->widths->rows : 8;
+			$spacer = str_repeat(' ', $legend->widths->spacing ? (string) $legend->widths->spacing : 5);
+
+			switch($xml->getName()) {
+				case 'series':
+					$orientation = empty($xml->attributes()->orientation) ? 'horizontal' : (string) $xml->attributes()->orientation;
+					foreach($xml->children() as $child) {
+						$this->build_graph($child, $legend, $this->cmd);
+					}
+					break;
+				case 'section':
+					$this->cmd[] = 'COMMENT:\s';
+					$title = 'COMMENT:"' . str_pad($xml->attributes()->title, $title_width);
+					$border = 'COMMENT:"' . str_repeat('=', $title_width);
+					foreach ($legend->totals->cf as $total) {
+						$title .= $spacer . str_pad($total, $col_title_len, ' ', STR_PAD_LEFT);
+						$border .= $spacer . str_repeat('=', $col_title_len);
+					}
+					$this->cmd[] =  $title . '\l"';
+	//				$this->cmd[] =  $border . '\l"';
+					foreach($xml->children() as $child) {
+						$this->build_graph($child, $legend);
+					}
+					break;
+				case 'serie':
+					static $default_options = array(
+						'var'	=> NULL,
+						'type'	=> 'LINE',
+						'color'	=> '#000000',
+						'sep'	=> NULL,
+					);
+	
+					$title = (string) $xml[0];
+					$opts = array();
+					foreach($default_options as $k => $v) {
+						$$k = empty($xml->attributes()->$k) ? $v : (string)$xml[0]->attributes()->$k;
+					}
+	
+					if (isset($sep)) {
+						$this->cmd[] = 'COMMENT:"' . str_repeat($sep, $title_width) . str_repeat($spacer . str_repeat($sep, $col_title_len), count($totals->xpath('//cf'))) . '\l"';
+					}
+	
+					if (!isset($this->vars[$var])) {
+						die("There's no `$var`\n");
+					}
+					$var = $this->vars[$var];
+					if ($type === 'STACK') {
+						$this->cmd[] = "AREA:{$var}{$color}:\"" . str_pad($title, $title_width - 4 /* color icon takes two chars */) . '":STACK';
+					} else {
+						$this->cmd[] = "{$type}:{$var}{$color}:\"" . str_pad($title, $title_width - 4 /* color icon takes two chars */) . '"';
+					}
+					
+					$abs = 'abs_' . $var;
+					if (!isset($this->vars[$abs])) {
+						$this->cmd[] = "CDEF:{$abs}=0,$var,GT,$var,-1,*,$var,IF";
+						$this->vars[$abs] = $abs;
+						$skip_vdef = FALSE;
+					} else {
+						$skip_vdef = TRUE;
+					}
+					
+					foreach($legend->totals->cf as $total) {
+						$cf = (string) $total->attributes()->type;
+						$format = (string) $total->attributes()->format;
+						$label = (string) $total;
+						$vdef = strtolower("{$label}_{$var}");
+						if (!$skip_vdef) {
+							$this->cmd[] = "VDEF:{$vdef}={$abs},{$cf}";
+						}
+						$this->cmd[] = 'COMMENT:"' . $spacer . '"';
+						$this->cmd[] = 'GPRINT:' . $vdef . ':"' . $format . '\g"';
+					}
+					$this->cmd[] = 'COMMENT:" \l"';
+					break;
+			}
+		}
+
+		function xml_merge() {
+			$new = NULL;
+			foreach(func_get_args() as $old) {
+				if (is_array($old)) {
+					$old = call_user_func_array(array($this, 'xml_merge'), $old);
+				}
+				if (empty($old)) {
+					continue;
+				}
+				if (!isset($new)) {
+					$new = new SimpleXMLElement($old->asXML());
+				} else {
+					foreach($old->attributes() as $k => $v) {
+						if (!isset($new->attributes()->$k)) {
+							$new->addAttribute($k, $v);
+						}
+					}
+					foreach($old->children() as $k => $v) {
+						$new->addChild($k, $v);
+					}
+				}
+			}
+			return $new;
+		}
+
+	}
+}
+?>
