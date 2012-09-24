@@ -60,7 +60,11 @@ namespace rrd {
 				new SimpleXMLElement("<extractor device='{$device->attributes()->id}' />") // add unique device id attribute in order to make the extractor persistent for this device only
 			);
 			$data = $extractor->get($sensor);
-			$this->rrdtool->update($db_filename, $data, (string) $sensor->attributes()->schema);
+			if ($data === FALSE) {
+				echo "\t\t\tExtractor failed. Skipping\n";
+			} else {
+				$this->rrdtool->update($db_filename, $data, (string) $sensor->attributes()->schema);
+			}
 		}
 		
 		function connector() {

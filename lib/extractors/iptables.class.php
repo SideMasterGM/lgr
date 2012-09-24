@@ -19,6 +19,9 @@ namespace rrd\extractors {
 		}
 		
 		function get($counters) {
+			if (empty($this->iptables)) {
+				return FALSE;
+			}
 			$result = array();
 			foreach(preg_split('/\s+/', $counters) as $reading) {
 				$r = 0;

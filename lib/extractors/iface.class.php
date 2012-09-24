@@ -21,6 +21,9 @@ namespace rrd\extractors {
 		}
 		
 		function get($interfaces = NULL) {
+			if (empty($this->interfaces)) {
+				return FALSE;
+			}
 			$result = array();
 			foreach (preg_split('/\s+/', $interfaces) as $i => $reading) {
 				$reading = preg_split('/[\/:]/', $reading);
