@@ -185,7 +185,6 @@ namespace rrd {
 				$sy = new ShuntingYard((string) $rec);
 	
 				$token = $sy->first();
-				$cnt = 0;
 				while ($token !== FALSE) {
 					if ($token->type === T_DEF) {
 						$var_key = $token->value;
@@ -217,15 +216,14 @@ namespace rrd {
 						$row[] = $token->value;
 					}
 					$token = $sy->next();
-					$cnt++;
 				}
 
 				$var_key = $var;
 				if (isset($this->vars[$var_key])) {
 					die("Duplicate variable definition for`{$var}`");
-				} elseif ($cnt === 1) {
+				} elseif ((count($row) === 1) and (strpos($row[0], $var_prefix) === 0)) {
 					// simple variable, duplicate key
-					$this->vars[$var_key] = $var_prefix . ($var_index - 1);
+					$this->vars[$var_key] = $row[0];
 				} else {
 					$var_name = $var_prefix . $var_index;
 					$var_index++;
