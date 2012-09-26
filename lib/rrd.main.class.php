@@ -246,6 +246,10 @@ namespace rrd {
 						$this->build_graph($child, $legend, $this->cmd);
 					}
 					break;
+				case 'comment':
+					$comment = (string) $xml;
+					$this->cmd[] = 'COMMENT:"' . ($comment !== '' ? $comment : ' ') . '"\l';
+					break;
 				case 'section':
 					$this->cmd[] = 'COMMENT:\s';
 					$title = 'COMMENT:"' . str_pad($xml->attributes()->title, $title_width);
@@ -284,6 +288,8 @@ namespace rrd {
 					$var = $this->vars[$var];
 					if ($type === 'STACK') {
 						$this->cmd[] = "AREA:{$var}{$color}:\"" . str_pad($title, $title_width - 4 /* color icon takes two chars */) . '":STACK';
+					} elseif (in_array($type, array('HRULE', 'VRULE'))) {
+						$this->cmd[] = "{$type}:{$var}{$color}" . (empty($title) ? '' : "$title:\"" . str_pad($title, $title_width - 4 /* color icon takes two chars */));
 					} else {
 						$this->cmd[] = "{$type}:{$var}{$color}:\"" . str_pad($title, $title_width - 4 /* color icon takes two chars */) . '"';
 					}
