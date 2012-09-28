@@ -153,6 +153,7 @@ namespace rrd {
 				'--no-gridfit',
 				'--legend-position=south',
 				'--slope-mode',
+				'--lower-limit 0',
 				'--alt-autoscale-max',
 				'--font DEFAULT:0:Courier',
 //				'--font DEFAULT:7:',
@@ -167,7 +168,7 @@ namespace rrd {
 				$file = $this->cfg->rrd->paths->img . DIRECTORY_SEPARATOR . $graph->attributes()->id . '.' . $period . '.png';
 				echo "\t\t{$graph->attributes()->id}.{$period}.png\n";
 				$this->cmd[0] = "graph {$file}";
-				$this->cmd[count($this->cmd) - 2] = "-t \"{$graph->settings->title} ({$periods[$period]})\"";
+				$this->cmd[count($this->cmd) - 2] = "-t \"{$graph->settings->title}\""; // ({$periods[$period]})\"";
 				$this->cmd[count($this->cmd) - 1] = "-s -1{$period}";
 //				print_r($this->cmd);
 				$this->rrdtool->exec(join(' ', $this->cmd));
@@ -296,7 +297,7 @@ namespace rrd {
 					
 					$abs = 'abs_' . $var;
 					if (!isset($this->vars[$abs])) {
-						$this->cmd[] = "CDEF:{$abs}=0,$var,GT,$var,-1,*,$var,IF";
+						$this->cmd[] = "CDEF:{$abs}=0,$var,GT,$var,1,*,$var,IF";
 						$this->vars[$abs] = $abs;
 						$skip_vdef = FALSE;
 					} else {
