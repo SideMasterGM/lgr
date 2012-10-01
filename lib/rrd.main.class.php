@@ -163,8 +163,8 @@ namespace rrd {
 				NULL,
 			));
 			static $periods = array('d' => 'last 24 hours', 'w' => 'last week', 'm' => 'last month', 'y' => 'last year');
-//			foreach(array_keys($periods) as $period) {
-			foreach(array('d') as $period) {
+			foreach(array_keys($periods) as $period) {
+//			foreach(array('d') as $period) {
 				$file = $this->cfg->rrd->paths->img . DIRECTORY_SEPARATOR . $graph->attributes()->id . '.' . $period . '.png';
 				echo "\t\t{$graph->attributes()->id}.{$period}.png\n";
 				$this->cmd[0] = "graph {$file}";
