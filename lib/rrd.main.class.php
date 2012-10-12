@@ -12,29 +12,53 @@ namespace rrd {
 		protected $vars;
 		protected $cmd;
 		
-		function __construct($cfg) {
-			$this->build_config($cfg);
+		function __construct($cfg, $default = NULL) {
+			$this->build_config($cfg, $default);
 			$this->rrdtool = new rrdtool($this->cfg->rrd);
+//			echo $this->cfg->asXML() . PHP_EOL;
+//			print_r($this->cfg);
+//			exit;
 		}
 
-		function build_config($cfg) {
-			if (is_string($cfg)) {
-				// string parameter. ehther file or xml
-				if (file_exists($cfg)) {
-					// file
-					$this->cfg = simplexml_load_file($cfg);
-				} else {
-					// xml
-					$this->cfg = simplexml_load_string($cfg);
-				}
-			} elseif (is_object($cfg) and (get_class($cfg) === 'SimpleXMLElement')) {
-				// ready object
-				$this->cfg = $cfg;
-			} else {
+		function build_config($cfg, $default) {
+			// XMLify cfg if needed
+			if (($cfg = $this->xmlify($cfg)) === FALSE) {
 				throw new Exception('Invalid configuration suplied!');
+			}
+			
+			// process default config if any
+			if (isset($default)) {
+				// XMLify default config
+				if (($this->cfg = $this->xmlify($default)) === FALSE) {
+					throw new Exception('Invalid default configuration suplied!');
+				} else {
+					// merge default with custom config
+					$this->xml_merge_recursive($this->cfg, $cfg);
+				}
+			} else {
+				// no default config, use only the custom one
+				$this->cfg = $cfg;
 			}
 		}
 
+		function xmlify($xml) {
+			if (is_string($xml)) {
+				// string parameter. ehther file or xml
+				if (file_exists($xml)) {
+					// file
+					return simplexml_load_file($xml);
+				} else {
+					// xml
+					return simplexml_load_string($xml);
+				}
+			} elseif (is_object($xml) and (get_class($xml) === 'SimpleXMLElement')) {
+				// ready object
+				return $cfg;
+			} else {
+				return FALSE;
+				throw new Exception('Invalid XML suplied!');
+			}
+		}
 		function fetch_all() {
 			foreach($this->cfg->xpath('devices/device') as $device) {
 				$this->fetch_device($device);
@@ -345,6 +369,52 @@ namespace rrd {
 			return $new;
 		}
 
+		function xml_merge_recursive() {
+			$base = NULL;
+			foreach(func_get_args() as $arg) {
+				if (is_array($arg)) {
+					$new = call_user_func_array(array($this, 'xml_merge_recursive'), $arg);
+				} elseif (get_class($arg) === 'SimpleXMLElement') {
+					$new = $arg;
+				} else {
+					die('Unsupported argument type `' . gettype($arg) . '`' . PHP_EOL);
+				}
+
+				// first object in line. set as master and continue to iterate.
+				if (!isset($base)) {
+					$base = $new;
+					continue;
+				}
+
+				// next object.
+
+				// copy attributes
+				foreach($new->attributes() as $k => $v) {
+					if (!$base->attributes()->$k) {
+						$base->addAttribute($k, $v);
+					}
+				}
+
+				// merge children
+				foreach($new->children() as $child) {
+					$tag = $child->getName();
+					$id = (string) $child->attributes()->id;
+					if (!$base->$tag) {
+						$base_element = $base->addChild($tag, (string) $child);
+					} elseif (!empty($id)) {
+						if (($base_element = $base->xpath("{$tag}[@id='${id}']")) and !empty($base_element)) {
+							$base_element = $base_element[0];
+						} else {
+							$base_element = $base->addChild($tag, (string) $child);
+						}
+					} else {
+						$base_element = $base->$tag;
+					}
+					$this->xml_merge_recursive($base_element, $child);
+				}
+			}
+			return $base;
+		}
 	}
 }
 ?>

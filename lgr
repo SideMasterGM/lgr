@@ -8,7 +8,7 @@ namespace {
 	$self = array_shift($argv);
 	foreach($argv as $cfg) {
 		echo "{$cfg}\n";
-		$rrd = new rrd\main($cfg);
+		$rrd = new rrd\main($cfg, '/z/lgr/default.xml');
 		echo "\tfetching statistics\n";
 		$rrd->fetch_all();
 		echo "\tdrawing graphs\n";
