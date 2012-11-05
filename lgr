@@ -3,16 +3,42 @@
 namespace {
 
 	require_once __DIR__ . DIRECTORY_SEPARATOR . 'lib' . DIRECTORY_SEPARATOR . 'rrd.lib.php';
+	require_once __DIR__ . DIRECTORY_SEPARATOR . 'lib' . DIRECTORY_SEPARATOR . 'optionparser/lib/OptionParser.php';
 
-	// pop our own name from argument list
-	$self = array_shift($argv);
-	foreach($argv as $cfg) {
-		echo "{$cfg}\n";
-		$rrd = new rrd\main($cfg, '/z/lgr/default.xml');
-		echo "\tfetching statistics\n";
-		$rrd->fetch_all();
-		echo "\tdrawing graphs\n";
-		$rrd->draw_all();
+	$opt = new OptionParser();
+	$opt->addHead('LiquidGrapher' . PHP_EOL);
+	$opt->addHead('Usage: ' . __FILE__ . ' [options] <input-file(s)>' . PHP_EOL);
+	$opt->addRule('t::', 'template file');
+	$opt->addRule('f', 'fetch only');
+	$opt->addRule('d', 'draw only');
+	
+	// OptionParser modifies supplied args, so use a copy of the orignal $argv
+	$args = $argv;
+	try {
+	    $opt->parse($args);
+	} catch (Exception $e) {
+		die($opt->getUsage());
+	}
+	
+	$template = $opt->getOption('t');
+	$fetch = $opt->getOption('f');
+	$draw = $opt->getOption('d');
+	if (!$fetch and !$draw) {
+		// no specific request what to do. do it all then
+		$fetch = $draw = TRUE;
+	}
+	
+	foreach($args as $input_file) {
+		echo "{$input_file}\n";
+		$rrd = new rrd\main($input_file, $template);
+		if ($fetch) {
+			echo "\tfetching statistics\n";
+			$rrd->fetch_all();
+		}
+		if ($draw) {
+			echo "\tdrawing graphs\n";
+			$rrd->draw_all();
+		}
 	}
 }
 

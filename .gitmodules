@@ -4,3 +4,6 @@
 [submodule "lib/json-rpc-php"]
 	path = lib/json-rpc-php
 	url = git://github.com/thinkphp/json-rpc-php.git
+[submodule "lib/optionparser"]
+	path = lib/optionparser
+	url = git://github.com/mjijackson/optionparser.git

@@ -27,7 +27,7 @@ namespace rrd {
 			}
 			
 			// process default config if any
-			if (isset($default)) {
+			if (!empty($default)) {
 				// XMLify default config
 				if (($this->cfg = $this->xmlify($default)) === FALSE) {
 					throw new Exception('Invalid default configuration suplied!');
