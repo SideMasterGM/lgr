@@ -1,0 +1,51 @@
+<?php
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'lib' . DIRECTORY_SEPARATOR . 'rrd.lib.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'lib' . DIRECTORY_SEPARATOR . 'optionparser/lib/OptionParser.php';
+
+$opt = new OptionParser();
+$opt->addHead('LiquidGrapher' . PHP_EOL);
+$opt->addHead('Usage: ' . $argv[0] . ' [options] <input-file(s)>' . PHP_EOL);
+$opt->addRule('t::', 'template file');
+$opt->addRule('f', 'fetch only');
+$opt->addRule('d', 'draw only');
+
+// OptionParser modifies supplied args, so use a copy of the orignal $argv
+$args = $argv;
+try {
+	$opt->parse($args);
+} catch (Exception $e) {
+	die($opt->getUsage());
+}
+if (empty($args)) {
+	die($opt->getUsage());
+}
+
+$template = $opt->getOption('t');
+if (pathinfo($template, PATHINFO_DIRNAME) === '.') {
+	$template = getcwd() . DIRECTORY_SEPARATOR . $template;
+}
+$fetch = $opt->getOption('f');
+$draw = $opt->getOption('d');
+if (!$fetch and !$draw) {
+	// no specific request what to do. do it all then
+	$fetch = $draw = TRUE;
+}
+
+
+foreach($args as $input_file) {
+	if (pathinfo($input_file, PATHINFO_DIRNAME) === '.') {
+		$input_file = getcwd() . DIRECTORY_SEPARATOR . $input_file;
+	}
+	echo "{$input_file}\n";
+	$rrd = new rrd\main($input_file, $template);
+	if ($fetch) {
+		echo "\tfetching statistics\n";
+		$rrd->fetch_all();
+	}
+	if ($draw) {
+		echo "\tdrawing graphs\n";
+		$rrd->draw_all();
+	}
+}
+
+?>
