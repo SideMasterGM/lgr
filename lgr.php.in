@@ -75,7 +75,7 @@ foreach($args as $input_file) {
 	$rrd = new rrd\main(array(
 		'config' => $input_file,
 		'template' => $options['t'],
-		'base_path' => array(
+		'paths' => array(
 			'db' => $options['r'],
 			'img' => $options['i'],
 		),

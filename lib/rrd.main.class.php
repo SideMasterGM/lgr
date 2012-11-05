@@ -6,7 +6,6 @@ namespace rrd {
 	use Exception, SimpleXMLElement, ShuntingYard;
 
 	class main {
-		protected $opts = array(); // constructor parameters
 		protected $cfg; // a SimpleXMLElement configuration object
 		protected $rrdtool; // a rrd\rrdtool object
 		protected $connectors = array();
@@ -15,8 +14,11 @@ namespace rrd {
 		protected $cmd;
 		
 		function __construct($opts) {
-			$this->opts = $opts;
-			$this->build_config($this->opts['config'], $this->opts['template']);
+			$this->build_config($opts['config'], $opts['template']);
+			// fix paths
+			foreach(array('db', 'img') as $path) {
+				$this->cfg->rrd->paths->$path = absolute_path((string) $this->cfg->rrd->paths->$path, $opts['paths'][$path]);
+			}
 			$this->rrdtool = new rrdtool($this->cfg->rrd);
 //			echo $this->cfg->asXML() . PHP_EOL;
 //			print_r($this->cfg);
@@ -75,7 +77,7 @@ namespace rrd {
 		}
 
 		function fetch_sensor($device, $sensor) {
-			$filename = absolute_path((string) $device->attributes()->id . '.' . preg_replace('/:/', '.', $sensor->attributes()->id) . '.rrd', @$this->opts['base_path']['db']);
+			$filename = (string) $device->attributes()->id . '.' . preg_replace('/:/', '.', $sensor->attributes()->id) . '.rrd';
 			echo  "\t\t{$filename}\n";
 			$extractor = $this->extractor(
 				$this->connector(
