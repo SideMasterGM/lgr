@@ -2,9 +2,11 @@
 namespace rrd {
 
 	require_once __DIR__ . DIRECTORY_SEPARATOR . 'psy' . DIRECTORY_SEPARATOR . 'psy.php';
+	require_once 'util.php';
 	use Exception, SimpleXMLElement, ShuntingYard;
 
 	class main {
+		protected $opts = array(); // constructor parameters
 		protected $cfg; // a SimpleXMLElement configuration object
 		protected $rrdtool; // a rrd\rrdtool object
 		protected $connectors = array();
@@ -12,8 +14,9 @@ namespace rrd {
 		protected $vars;
 		protected $cmd;
 		
-		function __construct($cfg, $default = NULL) {
-			$this->build_config($cfg, $default);
+		function __construct($opts) {
+			$this->opts = $opts;
+			$this->build_config($this->opts['config'], $this->opts['template']);
 			$this->rrdtool = new rrdtool($this->cfg->rrd);
 //			echo $this->cfg->asXML() . PHP_EOL;
 //			print_r($this->cfg);
@@ -72,8 +75,8 @@ namespace rrd {
 		}
 
 		function fetch_sensor($device, $sensor) {
-			$db_filename = (string) $device->attributes()->id . '.' . preg_replace('/:/', '.', $sensor->attributes()->id) . '.rrd';
-			echo  "\t\t{$db_filename}\n";
+			$filename = absolute_path((string) $device->attributes()->id . '.' . preg_replace('/:/', '.', $sensor->attributes()->id) . '.rrd', @$this->opts['base_path']['db']);
+			echo  "\t\t{$filename}\n";
 			$extractor = $this->extractor(
 				$this->connector(
 					$id = (string) $sensor->attributes()->connector,
@@ -87,7 +90,7 @@ namespace rrd {
 			if ($data === FALSE) {
 				echo "\t\t\tExtractor failed. Skipping\n";
 			} else {
-				$this->rrdtool->update($db_filename, $data, (string) $sensor->attributes()->schema);
+				$this->rrdtool->update($filename, $data, (string) $sensor->attributes()->schema);
 			}
 		}
 		
@@ -189,9 +192,9 @@ namespace rrd {
 			static $periods = array('d' => 'last 24 hours', 'w' => 'last week', 'm' => 'last month', 'y' => 'last year');
 			foreach(array_keys($periods) as $period) {
 //			foreach(array('d') as $period) {
-				$file = $this->cfg->rrd->paths->img . DIRECTORY_SEPARATOR . $graph->attributes()->id . '.' . $period . '.png';
+				$filename = absolute_path($this->cfg->rrd->paths->img . DIRECTORY_SEPARATOR . $graph->attributes()->id . '.' . $period . '.png', @$this->opts['base_path']['img']);
 				echo "\t\t{$graph->attributes()->id}.{$period}.png\n";
-				$this->cmd[0] = "graph {$file}";
+				$this->cmd[0] = "graph {$filename}";
 				$this->cmd[count($this->cmd) - 2] = "-t \"{$graph->settings->title}\""; // ({$periods[$period]})\"";
 				$this->cmd[count($this->cmd) - 1] = "-s -1{$period}";
 //				print_r($this->cmd);
@@ -222,7 +225,8 @@ namespace rrd {
 								$cf = strtoupper(array_pop($tmp));
 							}
 							$ds = array_pop($tmp);
-							$var_value = $this->cfg->rrd->paths->db . DIRECTORY_SEPARATOR . join('.', $tmp) . ".rrd:{$ds}:{$cf}";
+							$filename = absolute_path($this->cfg->rrd->paths->db . DIRECTORY_SEPARATOR . join('.', $tmp) . '.rrd', @$this->opts['base_path']['db']);
+							$var_value = "{$filename}:{$ds}:{$cf}";
 							$var_name = $var_prefix . $var_index;
 							$var_index++;
 							$this->vars[$var_key] = $var_name;

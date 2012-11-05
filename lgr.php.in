@@ -1,48 +1,90 @@
 <?php
+
+/*
+ *
+ * Library loading
+ *
+ */
+
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'lib' . DIRECTORY_SEPARATOR . 'util.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'lib' . DIRECTORY_SEPARATOR . 'rrd.lib.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'lib' . DIRECTORY_SEPARATOR . 'optionparser/lib/OptionParser.php';
 
-$opt = new OptionParser();
-$opt->addHead('LiquidGrapher' . PHP_EOL);
-$opt->addHead('Usage: ' . $argv[0] . ' [options] <input-file(s)>' . PHP_EOL);
-$opt->addRule('t::', 'template file');
-$opt->addRule('f', 'fetch only');
-$opt->addRule('d', 'draw only');
+/*
+ *
+ * Command line arguments processing
+ *
+ */
 
-// OptionParser modifies supplied args, so use a copy of the orignal $argv
-$args = $argv;
+ // default values
+$default_options = array(
+	't::' => array('description' => 'template file', 'value' => NULL, 'action' => 'absolute_path'),
+	'f' => array('description' => 'run only fetch', 'value' => NULL),
+	'd' => array('description' => 'run only draw', 'value' => NULL),
+	'r::' => array('description' => 'rrd base directory', 'value' => '/var/lib/lgr/rrd', 'action' => 'absolute_path'),
+	'i::' => array('description' => 'image base directory', 'value' => '/var/lib/lgr/img', 'action' => 'absolute_path'),
+);
+
+// setup the OptionParser
+$option_parser = new OptionParser();
+$option_parser->addHead('LiquidGrapher' . PHP_EOL);
+$option_parser->addHead('Usage: ' . $argv[0] . ' [options] <input-file(s)>' . PHP_EOL);
+foreach($default_options as $key => $defaults) {
+	$option_parser->addRule($key, $defaults['description'] . ($defaults['value'] ? " (default: {$defaults['value']})" : ''));
+}
+
+// parse arguments
+$args = $argv; // as OptionParser modifies supplied args, so use a copy of the orignal $argv
 try {
-	$opt->parse($args);
+	$option_parser->parse($args);
 } catch (Exception $e) {
-	die($opt->getUsage());
+	die($option_parser->getUsage());
 }
 if (empty($args)) {
-	die($opt->getUsage());
+	die($option_parser->getUsage());
 }
 
-$template = $opt->getOption('t');
-if (pathinfo($template, PATHINFO_DIRNAME) === '.') {
-	$template = getcwd() . DIRECTORY_SEPARATOR . $template;
+// options post-processing
+$options = array();
+foreach($default_options as $key => $defaults) {
+	$key = $key[0];
+	$value = $option_parser->getOption($key);
+	if (empty($value) and !empty($defaults['value'])) {
+		$value = $defaults['value'];
+	}
+	if (isset($defaults['action']) and !empty($defaults['action'])) {
+		$value = $defaults['action']($value);
+	}
+	$options[$key] = $value;
 }
-$fetch = $opt->getOption('f');
-$draw = $opt->getOption('d');
-if (!$fetch and !$draw) {
-	// no specific request what to do. do it all then
-	$fetch = $draw = TRUE;
+if (empty($options['f']) and empty($options['d'])) {
+	// if no action is selected do all of them
+	$options['f'] = $options['d'] = 1;
 }
+//print_r($options); exit;
 
+/*
+ *
+ * Actual execution starts here
+ *
+ */
 
 foreach($args as $input_file) {
-	if (pathinfo($input_file, PATHINFO_DIRNAME) === '.') {
-		$input_file = getcwd() . DIRECTORY_SEPARATOR . $input_file;
-	}
+	$input_file = absolute_path($input_file);
 	echo "{$input_file}\n";
-	$rrd = new rrd\main($input_file, $template);
-	if ($fetch) {
+	$rrd = new rrd\main(array(
+		'config' => $input_file,
+		'template' => $options['t'],
+		'base_path' => array(
+			'db' => $options['r'],
+			'img' => $options['i'],
+		),
+	));
+	if ($options['f']) {
 		echo "\tfetching statistics\n";
 		$rrd->fetch_all();
 	}
-	if ($draw) {
+	if ($options['d']) {
 		echo "\tdrawing graphs\n";
 		$rrd->draw_all();
 	}
