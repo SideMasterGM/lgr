@@ -71,6 +71,10 @@ if (empty($options['f']) and empty($options['d'])) {
 
 foreach($args as $input_file) {
 	$input_file = absolute_path($input_file);
+	if (!file_exists($input_file)) {
+		echo "{$input_file} not found! skipping\n";
+		continue;
+	}
 	echo "{$input_file}\n";
 	$rrd = new rrd\main(array(
 		'config' => $input_file,
