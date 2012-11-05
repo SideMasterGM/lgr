@@ -30,4 +30,15 @@ function absolute_path($filename, $base_path = NULL) {
 	return DIRECTORY_SEPARATOR . join(DIRECTORY_SEPARATOR, $path) . DIRECTORY_SEPARATOR . $pathinfo['basename'];
 }
 
+//
+function make_dir($dir) {
+	$path = '';
+	foreach(preg_split('/\\' . DIRECTORY_SEPARATOR . '/', $dir) as $sub_dir) {
+		$path .= DIRECTORY_SEPARATOR . $sub_dir;
+		if (!is_dir($path)) {
+			mkdir($path);
+		}
+	}
+}
+
 ?>

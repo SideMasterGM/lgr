@@ -18,6 +18,11 @@ namespace rrd {
 			// fix paths
 			foreach(array('db', 'img') as $path) {
 				$this->cfg->rrd->paths->$path = absolute_path((string) $this->cfg->rrd->paths->$path, $opts['paths'][$path]);
+				if (!is_dir((string) $this->cfg->rrd->paths->$path)) {
+					// create a path if not exsits
+					echo 'creating ' . $this->cfg->rrd->paths->$path . PHP_EOL;
+					make_dir((string) $this->cfg->rrd->paths->$path);
+				}
 			}
 			$this->rrdtool = new rrdtool($this->cfg->rrd);
 //			echo $this->cfg->asXML() . PHP_EOL;
