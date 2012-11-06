@@ -15,7 +15,7 @@ namespace rrd\extractors {
 			} catch (Exception $e) {
 				return FALSE;
 			}
-						$result = array();
+			$result = array();
 			foreach(preg_split('/\n|\r|\s|\t/', $sensor, NULL, PREG_SPLIT_NO_EMPTY) as $reading) {
 				$tmp = $data;
 				foreach(preg_split('/\//', $reading) as $key) {
