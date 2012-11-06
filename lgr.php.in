@@ -52,7 +52,7 @@ foreach($default_options as $key => $defaults) {
 	if (empty($value) and !empty($defaults['value'])) {
 		$value = $defaults['value'];
 	}
-	if (isset($defaults['action']) and !empty($defaults['action'])) {
+	if (!empty($value) and isset($defaults['action']) and !empty($defaults['action'])) {
 		$value = $defaults['action']($value);
 	}
 	$options[$key] = $value;
