@@ -15,11 +15,22 @@ $base_name = 'lgr';
 $src_name = $base_name . '.php.in';
 $archive_name = $base_name . '.phar';
 $executable_name = $base_name;
+$stub =<<<STUB
+#!/usr/bin/env php
+<?php
+if (!extension_loaded('Phar') or !class_exists('Phar')) {
+	die("Phar extension required to run this program\n");
+}
+Phar::mapPhar('lgr.phar');
+require 'phar://lgr.phar/lgr';
+__HALT_COMPILER();
+?>
+STUB;
 
 $phar = new Phar($archive_name, FilesystemIterator::CURRENT_AS_FILEINFO | FilesystemIterator::KEY_AS_FILENAME, $archive_name);
 $phar->addFile($src_name, $executable_name);
 $phar->buildFromDirectory('./', '/\.php$/');
-$phar->setStub("#!/usr/bin/env php\n<?php Phar::mapPhar('lgr.phar'); require 'phar://lgr.phar/lgr'; __HALT_COMPILER();");
+$phar->setStub($stub);
 $phar->compressFiles(Phar::GZ);
 unset($phar);
 rename($archive_name, $executable_name);
