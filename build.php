@@ -2,7 +2,7 @@
 <?php
 
 // do some sanity checks
-if (!extension_loaded('phar')) {
+if (!extension_loaded('Phar') or !class_exists('Phar')) {
 	die("phar extension not loaded\n");
 } else {
 	echo 'phar v' . phpversion('phar') . " loaded\n";
