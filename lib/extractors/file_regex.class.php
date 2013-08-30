@@ -13,7 +13,7 @@ namespace rrd\extractors {
 			$this->filename = $cfg['file'];
 			$this->regex = $cfg['regex'];
 		}
-		
+
 		function get($parameters = NULL) {
 			if (preg_match($this->regex, $this->connector->file_get_contents($this->filename), $matches)) {
 				return array_splice($matches, 1);
@@ -21,7 +21,7 @@ namespace rrd\extractors {
 				return FALSE;
 			}
 		}
-	
+
 	}
 }
 ?>

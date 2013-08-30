@@ -1,7 +1,7 @@
 <?php
 namespace rrd {
 	class rrdtool {
-		
+
 		protected $cfg; // global config
 		protected $rrd_process; // proc_open resource id
 		protected $rrd_pipes; // rrdtool stdout and stdin pipes
@@ -18,7 +18,7 @@ namespace rrd {
 				throw new Exception('Unable to start rrdtool');
 			}
 		}
-		
+
 		function __destruct() {
 			foreach($this->rrd_pipes as $pipe) {
 				fclose($pipe);
@@ -31,7 +31,7 @@ namespace rrd {
 			if (is_string($command)) {
 				$command = array($command);
 			}
-			
+
 			// cycle trough commands and execute them
 			foreach($command as $rrdcmd) {
 //				echo "\t\t\trrdtool {$rrdcmd}\n";
@@ -50,10 +50,10 @@ namespace rrd {
 						echo "RRD {$res}\n";
 				}
 			}
-			
+
 			return TRUE;
 		}
-		
+
 		function create($filename, $schema_id) {
 			$cmd = array();
 
@@ -80,7 +80,7 @@ namespace rrd {
 				foreach($data_sources as $ds) {
 					$rec = array();
 					foreach($ds_defaults as $k => $v) {
-						$rec[$k] = !empty($ds->attributes()->$k) ? (string) $ds->attributes()->$k : $v; 
+						$rec[$k] = !empty($ds->attributes()->$k) ? (string) $ds->attributes()->$k : $v;
 					}
 					$cmd[] = 'DS:' . $ds->attributes()->id . ':' . join(':',$rec);
 				}
@@ -94,7 +94,7 @@ namespace rrd {
 			// execute the command
 			return $this->exec(join(' ', $cmd));
 		}
-		
+
 		function update($filename, &$data, $schema_id = NULL) {
 			if (pathinfo($filename, PATHINFO_DIRNAME) === '.') {
 				$filename = $this->cfg->paths->db . DIRECTORY_SEPARATOR . $filename;
@@ -102,9 +102,9 @@ namespace rrd {
 			if (!file_exists($filename)) {
 				$this->create($filename, $schema_id);
 			}
-			return $this->exec("update {$filename} N:" . join(':', $data)); 
+			return $this->exec("update {$filename} N:" . join(':', $data));
 		}
-		
+
 		function graph($file) {
 			return $this->exec("graph {$file} ");
 		}
