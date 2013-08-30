@@ -12,7 +12,7 @@ namespace rrd {
 		protected $extractors = array();
 		protected $vars;
 		protected $cmd;
-		
+
 		function __construct($opts) {
 			$this->build_config($opts['config'], $opts['template']);
 			// fix paths
@@ -35,7 +35,7 @@ namespace rrd {
 			if (($cfg = $this->xmlify($cfg)) === FALSE) {
 				throw new Exception('Invalid configuration suplied!');
 			}
-			
+
 			// process default config if any
 			if (!empty($default)) {
 				// XMLify default config
@@ -74,7 +74,7 @@ namespace rrd {
 				$this->fetch_device($device);
 			}
 		}
-		
+
 		function fetch_device($device) {
 			foreach($device->xpath('sensors/sensor') as $sensor) {
 				$this->fetch_sensor($device, $sensor);
@@ -100,7 +100,7 @@ namespace rrd {
 				$this->rrdtool->update($filename, $data, (string) $sensor->attributes()->schema);
 			}
 		}
-		
+
 		function connector() {
 			if (!func_num_args()) {
 				throw new Exception(__METHOD__ . ' called without paramters');
@@ -157,7 +157,7 @@ namespace rrd {
 			$this->vars = array();
 			$this->build_defs($graph->data);
 			$this->build_graph($graph->series, $graph->legend);
-			
+
 			// customizations
 			if (!empty($graph->settings)) {
 				static $options = array('legend-direction', 'width', 'height', 'vertical-label', 'only-graph', 'full-size-mode', 'font');
@@ -182,7 +182,7 @@ namespace rrd {
 			$this->cmd = array_merge(array(NULL), $this->cmd, array(
 				'COMMENT:\s',
 //				'--alt-y-grid',
-//				'--watermark "LiquidGrapher v0.1 beta @ ' . date('D, d M Y H:i:s T') . '"',
+				'--watermark "LiquidGrapher v0.1 beta @ ' . date('D, d M Y H:i:s T') . '"',
 				'--imgformat PNG',
 				'--no-gridfit',
 				'--legend-position=south',
@@ -207,18 +207,18 @@ namespace rrd {
 //				print_r($this->cmd);
 				$this->rrdtool->exec(join(' ', $this->cmd));
 			}
-//			print_r($this->cmd);
+//			print_r($this->cmd); exit;
 		}
-		
+
 		function build_defs($xml) {
 			static $var_prefix = 'var';
 			$var_index = 0;
-		
+
 			foreach($xml->var as $rec) {
 				$row = array();
 				$var = (string) $rec->attributes()->id;
 				$sy = new ShuntingYard((string) $rec);
-	
+
 				$token = $sy->first();
 				while ($token !== FALSE) {
 					if ($token->type === T_DEF) {
@@ -307,17 +307,17 @@ namespace rrd {
 						'color'	=> '#000000',
 						'sep'	=> NULL,
 					);
-	
+
 					$title = (string) $xml[0];
 					$opts = array();
 					foreach($default_options as $k => $v) {
 						$$k = empty($xml->attributes()->$k) ? $v : (string)$xml[0]->attributes()->$k;
 					}
-	
+
 					if (isset($sep)) {
 						$this->cmd[] = 'COMMENT:"' . str_repeat($sep, $title_width) . str_repeat($spacer . str_repeat($sep, $col_title_len), count($legend->totals->cf)) . '\l"';
 					}
-	
+
 					if (!isset($this->vars[$var])) {
 						die("There's no `$var`\n");
 					}
@@ -329,7 +329,7 @@ namespace rrd {
 					} else {
 						$this->cmd[] = "{$type}:{$var}{$color}:\"" . str_pad($title, $title_width - 4 /* color icon takes two chars */) . '"';
 					}
-					
+
 					$abs = 'abs_' . $var;
 					if (!isset($this->vars[$abs])) {
 						$this->cmd[] = "CDEF:{$abs}=0,$var,GT,$var,1,*,$var,IF";
@@ -338,14 +338,22 @@ namespace rrd {
 					} else {
 						$skip_vdef = TRUE;
 					}
-					
+
 					foreach($legend->totals->cf as $total) {
 						$cf = (string) $total->attributes()->type;
 						$format = (string) $total->attributes()->format;
-						$label = (string) $total;
+						$label = str_replace(' ', '_', (string) $total);
 						$vdef = strtolower("{$label}_{$var}");
 						if (!$skip_vdef) {
-							$this->cmd[] = "VDEF:{$vdef}={$abs},{$cf}";
+							if (strpos($cf, 'PERCENT') === FALSE) {
+								$this->cmd[] = "VDEF:{$vdef}={$abs},{$cf}";
+							} else {
+								@list($cf, $percentile) = explode(':', $cf);
+								if (empty($percentile)) {
+									$percentile = 95;
+								}
+								$this->cmd[] = "VDEF:{$vdef}={$abs},{$percentile},{$cf}";
+							}
 						}
 						$this->cmd[] = 'COMMENT:"' . $spacer . '"';
 						$this->cmd[] = 'GPRINT:' . $vdef . ':"' . $format . '\g"';
