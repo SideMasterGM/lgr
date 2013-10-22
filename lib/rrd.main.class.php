@@ -71,7 +71,11 @@ namespace rrd {
 		}
 		function fetch_all() {
 			foreach($this->cfg->xpath('devices/device') as $device) {
-				$this->fetch_device($device);
+				try {
+					@$this->fetch_device($device);
+				} catch (Exception $e) {
+					echo 'Exception: ' . $e->getMessage() . PHP_EOL;
+				}
 			}
 		}
 
