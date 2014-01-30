@@ -2,9 +2,9 @@
 namespace rrd\extractors {
 	class iptables {
 		private $iptables = array();
-		
+
 		function __construct($connector, $cfg) {
-			foreach (preg_split('/\n/', $connector->exec('iptables-save -c')) as $line) {
+			foreach (preg_split('/\n/', $connector->exec('/sbin/iptables-save -c')) as $line) {
 				// process line by line
 				if (preg_match('/--comment\s+"([^"]+)"/', $line, $matches)) {
 					// line with comment found
@@ -17,7 +17,7 @@ namespace rrd\extractors {
 				}
 			}
 		}
-		
+
 		function get($sensor) {
 			if (empty($this->iptables)) {
 				return FALSE;
