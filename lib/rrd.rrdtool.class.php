@@ -82,7 +82,7 @@ namespace rrd {
 					foreach($ds_defaults as $k => $v) {
 						$rec[$k] = !empty($ds->attributes()->$k) ? (string) $ds->attributes()->$k : $v;
 					}
-					$cmd[] = 'DS:' . $ds->attributes()->id . ':' . join(':',$rec);
+					$cmd[] = 'DS:' . ds_encode($ds->attributes()->id) . ':' . join(':',$rec);
 				}
 			}
 

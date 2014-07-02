@@ -10,7 +10,7 @@ function absolute_path($filename, $base_path = NULL) {
 		}
 		$filename = $base_path . DIRECTORY_SEPARATOR . $filename;
 	}
-	$pathinfo = pathinfo($filename);	
+	$pathinfo = pathinfo($filename);
 	$path = array();
 	foreach(preg_split('/\\' . DIRECTORY_SEPARATOR . '/', $pathinfo['dirname'], NULL, PREG_SPLIT_NO_EMPTY) as $dir) {
 		// cycle trough directories in the path
@@ -38,6 +38,18 @@ function make_dir($dir) {
 		if (!is_dir($path)) {
 			mkdir($path);
 		}
+	}
+}
+
+function ds_encode($ds) {
+	if (strlen($ds) > 19 or !preg_match('/^[a-zA-Z0-9_]+$/', $ds)) {
+		// too long or invalid characters in data source
+		// return last 19 chars of hex md5 hash
+		return substr(md5($ds), -19);
+	} else {
+		// no encoding needed
+		// return the original data source name
+		return $ds;
 	}
 }
 

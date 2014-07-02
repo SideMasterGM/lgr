@@ -235,7 +235,7 @@ namespace rrd {
 							} else {
 								$cf = strtoupper(array_pop($tmp));
 							}
-							$ds = array_pop($tmp);
+							$ds = ds_encode(array_pop($tmp));
 							$filename = absolute_path($this->cfg->rrd->paths->db . DIRECTORY_SEPARATOR . join('.', $tmp) . '.rrd', @$this->opts['base_path']['db']);
 							$var_value = "{$filename}:{$ds}:{$cf}";
 							$var_name = $var_prefix . $var_index;
