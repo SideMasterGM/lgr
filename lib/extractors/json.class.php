@@ -22,7 +22,7 @@ namespace rrd\extractors {
 					$data = &$data[$i];
 				}
 //				echo "{$key}: {$data}\n";
-				$res[] = $data;
+				$res[] = intval($data);
 			}
 //			print_r($res);
 			return $res;
